@@ -9,13 +9,12 @@ services:
     hostname: mail.system.syscomatic.com
     domainname: system.syscomatic.com
     restart: unless-stopped
-    # CHANGED PORTS to avoid conflict with aaPanel mail
     ports:
-      - "127.0.0.1:1025:25"     # SMTP (changed from 25 to 1025)
-      - "127.0.0.1:1143:143"    # IMAP (changed from 143 to 1143)
-      - "127.0.0.1:1587:587"    # SMTP Submission (changed from 587 to 1587)
-      - "127.0.0.1:1993:993"    # IMAPS (changed from 993 to 1993)
-      - "127.0.0.1:1465:465"    # SMTPS (changed from 465 to 1465)
+      - "127.0.0.1:1025:25"
+      - "127.0.0.1:1143:143"
+      - "127.0.0.1:1587:587"
+      - "127.0.0.1:1993:993"
+      - "127.0.0.1:1465:465"
     environment:
       - DOMAIN=system.syscomatic.com
       - HOSTNAME=mail.system.syscomatic.com
@@ -40,7 +39,7 @@ services:
     container_name: rainloop-system
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8081:80"  # CHANGED from 8080 to 8081
     environment:
       - RAINLOOP_ADMIN_LOGIN=admin
       - RAINLOOP_ADMIN_PASSWORD=${RAINLOOP_ADMIN_PASSWORD}
