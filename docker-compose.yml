@@ -9,12 +9,13 @@ services:
     hostname: mail.system.syscomatic.com
     domainname: system.syscomatic.com
     restart: unless-stopped
+    # CHANGED PORTS to avoid conflict with aaPanel mail
     ports:
-      - "127.0.0.1:25:25"
-      - "127.0.0.1:143:143"
-      - "127.0.0.1:587:587"
-      - "127.0.0.1:993:993"
-      - "127.0.0.1:465:465"
+      - "127.0.0.1:1025:25"     # SMTP (changed from 25 to 1025)
+      - "127.0.0.1:1143:143"    # IMAP (changed from 143 to 1143)
+      - "127.0.0.1:1587:587"    # SMTP Submission (changed from 587 to 1587)
+      - "127.0.0.1:1993:993"    # IMAPS (changed from 993 to 1993)
+      - "127.0.0.1:1465:465"    # SMTPS (changed from 465 to 1465)
     environment:
       - DOMAIN=system.syscomatic.com
       - HOSTNAME=mail.system.syscomatic.com
@@ -65,7 +66,6 @@ services:
       - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - mail-network
-    # NO PORT EXPOSED - containers can access via internal network
 
 networks:
   mail-network:
