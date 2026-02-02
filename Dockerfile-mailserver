@@ -1,78 +1,47 @@
+
 FROM debian:bullseye-slim
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
+# Fast install - essentials only
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     postfix \
     postfix-mysql \
-    postfix-pcre \
     dovecot-core \
     dovecot-imapd \
     dovecot-pop3d \
     dovecot-lmtpd \
     dovecot-mysql \
     dovecot-sieve \
-    dovecot-managesieved \
-    default-mysql-client \
     mariadb-client \
-    opendkim \
-    opendkim-tools \
-    opendmarc \
-    spamassassin \
-    spamc \
-    clamav \
-    clamav-daemon \
-    amavisd-new \
-    fail2ban \
-    netcat-openbsd \
-    curl \
-    wget \
-    gnupg \
     supervisor \
+    curl \
     ca-certificates \
     ssl-cert \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Create directories
+# Create directories and user
 RUN mkdir -p /var/mail/vhosts \
-    && mkdir -p /etc/dovecot/ssl \
-    && mkdir -p /var/spool/postfix/opendkim \
-    && mkdir -p /etc/opendkim/keys \
-    && mkdir -p /var/log/mail \
-    && mkdir -p /etc/supervisor/conf.d
-
-# Create vmail user
-RUN groupadd -g 5000 vmail \
+    && groupadd -g 5000 vmail \
     && useradd -g vmail -u 5000 vmail -d /var/mail -s /usr/sbin/nologin
 
-# Copy configuration files
-COPY postfix/ /etc/postfix/
-COPY dovecot/ /etc/dovecot/
-COPY entrypoint.sh /entrypoint.sh
-
-# Create supervisor config for mail services
-RUN echo '[supervisord]\nnodaemon=true\n\n[program:postfix]\ncommand=/usr/sbin/postfix start-fg\nautostart=true\nautorestart=true\n\n[program:dovecot]\ncommand=/usr/sbin/dovecot -F\nautostart=true\nautorestart=true\n' > /etc/supervisor/conf.d/mail.conf
-
-# Set permissions
-RUN chmod +x /entrypoint.sh \
-    && chown -R vmail:vmail /var/mail \
-    && chmod -R 770 /var/mail \
-    && chown -R opendkim:opendkim /etc/opendkim \
-    && chmod -R 750 /etc/opendkim
-
-# Generate self-signed SSL
+# Generate SSL
 RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/ssl/private/ssl-cert-snakeoil.key \
     -out /etc/ssl/certs/ssl-cert-snakeoil.pem \
     -subj "/C=BD/ST=Dhaka/L=Dhaka/O=Syscomatic/CN=localhost" \
     && chmod 600 /etc/ssl/private/ssl-cert-snakeoil.key
 
-# Expose ports
+# Copy configs
+COPY postfix/ /etc/postfix/
+COPY dovecot/ /etc/dovecot/
+COPY entrypoint.sh /entrypoint.sh
+
+# Supervisor
+RUN echo '[supervisord]\nnodaemon=true\n\n[program:postfix]\ncommand=/usr/sbin/postfix start-fg\n[program:dovecot]\ncommand=/usr/sbin/dovecot -F\n' > /etc/supervisor/conf.d/mail.conf
+
+RUN chmod +x /entrypoint.sh \
+    && chown -R vmail:vmail /var/mail
+
 EXPOSE 25 143 587 993 465
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-    CMD echo QUIT | nc localhost 25 | grep -q "220" || exit 1
-
-# Start script
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
