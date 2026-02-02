@@ -1,0 +1,64 @@
+FROM debian:bullseye-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    postfix \
+    postfix-mysql \
+    postfix-pcre \
+    dovecot-core \
+    dovecot-imapd \
+    dovecot-pop3d \
+    dovecot-lmtpd \
+    dovecot-mysql \
+    dovecot-sieve \
+    dovecot-managesieved \
+    mysql-client \
+    opendkim \
+    opendkim-tools \
+    opendmarc \
+    spamassassin \
+    spamc \
+    clamav \
+    clamav-daemon \
+    amavisd-new \
+    fail2ban \
+    netcat-openbsd \
+    curl \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /var/mail/vhosts/system.syscomatic.com \
+    && mkdir -p /etc/dovecot/ssl \
+    && mkdir -p /var/spool/postfix/opendkim \
+    && mkdir -p /etc/opendkim/keys \
+    && mkdir -p /var/log/mail
+
+# Create vmail user
+RUN groupadd -g 5000 vmail \
+    && useradd -g vmail -u 5000 vmail -d /var/mail -s /usr/sbin/nologin
+
+# Copy configuration files
+COPY postfix/ /etc/postfix/
+COPY dovecot/ /etc/dovecot/
+COPY ssl/ /etc/ssl/mail/
+COPY entrypoint.sh /entrypoint.sh
+
+# Set permissions
+RUN chmod +x /entrypoint.sh \
+    && chown -R vmail:vmail /var/mail \
+    && chmod -R 770 /var/mail \
+    && chown -R opendkim:opendkim /etc/opendkim \
+    && chmod -R 750 /etc/opendkim
+
+# Expose ports
+EXPOSE 25 143 587 993 465
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD echo QUIT | nc localhost 25 | grep -q "220" || exit 1
+
+# Start script
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]

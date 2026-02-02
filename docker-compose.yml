@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  mailserver:
+    build:
+      context: .
+      dockerfile: Dockerfile-mailserver
+    container_name: mailserver-system
+    hostname: mail.system.syscomatic.com
+    domainname: system.syscomatic.com
+    restart: unless-stopped
+    # Only expose to localhost for aaPanel Nginx to proxy
+    ports:
+      - "127.0.0.1:25:25"     # SMTP
+      - "127.0.0.1:143:143"   # IMAP
+      - "127.0.0.1:587:587"   # SMTP Submission
+      - "127.0.0.1:993:993"   # IMAPS
+      - "127.0.0.1:465:465"   # SMTPS
+    environment:
+      - DOMAIN=system.syscomatic.com
+      - HOSTNAME=mail.system.syscomatic.com
+      - POSTMASTER_ADDRESS=admin@system.syscomatic.com
+      - POSTMASTER_PASSWORD=${POSTMASTER_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - maildata:/var/mail
+      - mailstate:/var/mail-state
+      - maillogs:/var/log/mail
+      - ./postfix/main.cf:/etc/postfix/main.cf:ro
+      - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+      - ./ssl:/etc/ssl/mail:ro
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - mail-network
+
+  rainloop:
+    image: hardware/rainloop:latest
+    container_name: rainloop-system
+    restart: unless-stopped
+    # Expose only to localhost
+    ports:
+      - "127.0.0.1:8080:80"
+    environment:
+      - RAINLOOP_ADMIN_LOGIN=admin
+      - RAINLOOP_ADMIN_PASSWORD=${RAINLOOP_ADMIN_PASSWORD}
+    volumes:
+      - rainloop_data:/var/www/html/data
+      - ./rainloop-config.ini:/var/www/html/data/_data_/_default_/configs/application.ini:ro
+    networks:
+      - mail-network
+    depends_on:
+      - mailserver
+
+  database:
+    image: mysql:8.0
+    container_name: mail-db-system
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: mailserver
+      MYSQL_USER: mailuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - mail-network
+
+networks:
+  mail-network:
+    driver: bridge
+
+volumes:
+  maildata:
+  mailstate:
+  maillogs:
+  rainloop_data:
+  db_data:
