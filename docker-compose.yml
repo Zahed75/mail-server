@@ -9,13 +9,12 @@ services:
     hostname: mail.system.syscomatic.com
     domainname: system.syscomatic.com
     restart: unless-stopped
-    # Only expose to localhost for aaPanel Nginx to proxy
     ports:
-      - "127.0.0.1:25:25"     # SMTP
-      - "127.0.0.1:143:143"   # IMAP
-      - "127.0.0.1:587:587"   # SMTP Submission
-      - "127.0.0.1:993:993"   # IMAPS
-      - "127.0.0.1:465:465"   # SMTPS
+      - "127.0.0.1:25:25"
+      - "127.0.0.1:143:143"
+      - "127.0.0.1:587:587"
+      - "127.0.0.1:993:993"
+      - "127.0.0.1:465:465"
     environment:
       - DOMAIN=system.syscomatic.com
       - HOSTNAME=mail.system.syscomatic.com
@@ -29,16 +28,16 @@ services:
       - maillogs:/var/log/mail
       - ./postfix/main.cf:/etc/postfix/main.cf:ro
       - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
-      - ./ssl:/etc/ssl/mail:ro
-      - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./dovecot/users:/etc/dovecot/users:ro
     networks:
       - mail-network
+    depends_on:
+      - database
 
   rainloop:
     image: hardware/rainloop:latest
     container_name: rainloop-system
     restart: unless-stopped
-    # Expose only to localhost
     ports:
       - "127.0.0.1:8080:80"
     environment:
@@ -66,6 +65,8 @@ services:
       - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - mail-network
+    ports:
+      - "127.0.0.1:3306:3306"
 
 networks:
   mail-network:

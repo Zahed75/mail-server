@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
     dovecot-mysql \
     dovecot-sieve \
     dovecot-managesieved \
-    mysql-client \
+    default-mysql-client \
+    mariadb-client \
     opendkim \
     opendkim-tools \
     opendmarc \
@@ -26,14 +27,18 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     gnupg \
+    supervisor \
+    ca-certificates \
+    ssl-cert \
     && rm -rf /var/lib/apt/lists/*
 
 # Create directories
-RUN mkdir -p /var/mail/vhosts/system.syscomatic.com \
+RUN mkdir -p /var/mail/vhosts \
     && mkdir -p /etc/dovecot/ssl \
     && mkdir -p /var/spool/postfix/opendkim \
     && mkdir -p /etc/opendkim/keys \
-    && mkdir -p /var/log/mail
+    && mkdir -p /var/log/mail \
+    && mkdir -p /etc/supervisor/conf.d
 
 # Create vmail user
 RUN groupadd -g 5000 vmail \
@@ -42,8 +47,10 @@ RUN groupadd -g 5000 vmail \
 # Copy configuration files
 COPY postfix/ /etc/postfix/
 COPY dovecot/ /etc/dovecot/
-COPY ssl/ /etc/ssl/mail/
 COPY entrypoint.sh /entrypoint.sh
+
+# Create supervisor config for mail services
+RUN echo '[supervisord]\nnodaemon=true\n\n[program:postfix]\ncommand=/usr/sbin/postfix start-fg\nautostart=true\nautorestart=true\n\n[program:dovecot]\ncommand=/usr/sbin/dovecot -F\nautostart=true\nautorestart=true\n' > /etc/supervisor/conf.d/mail.conf
 
 # Set permissions
 RUN chmod +x /entrypoint.sh \
@@ -51,6 +58,13 @@ RUN chmod +x /entrypoint.sh \
     && chmod -R 770 /var/mail \
     && chown -R opendkim:opendkim /etc/opendkim \
     && chmod -R 750 /etc/opendkim
+
+# Generate self-signed SSL
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/ssl-cert-snakeoil.key \
+    -out /etc/ssl/certs/ssl-cert-snakeoil.pem \
+    -subj "/C=BD/ST=Dhaka/L=Dhaka/O=Syscomatic/CN=localhost" \
+    && chmod 600 /etc/ssl/private/ssl-cert-snakeoil.key
 
 # Expose ports
 EXPOSE 25 143 587 993 465
@@ -61,4 +75,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
 
 # Start script
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
