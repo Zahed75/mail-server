@@ -65,8 +65,7 @@ services:
       - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - mail-network
-    ports:
-      - "127.0.0.1:3306:3306"
+    # NO PORT EXPOSED - containers can access via internal network
 
 networks:
   mail-network:
