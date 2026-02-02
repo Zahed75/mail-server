@@ -1,10 +1,10 @@
-
 FROM debian:bullseye-slim
 
-# Fast install - essentials only
+# Install dependencies
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     postfix \
     postfix-mysql \
+    postfix-pcre \
     dovecot-core \
     dovecot-imapd \
     dovecot-pop3d \
@@ -19,29 +19,30 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create directories and user
+# Create directories
 RUN mkdir -p /var/mail/vhosts \
     && groupadd -g 5000 vmail \
     && useradd -g vmail -u 5000 vmail -d /var/mail -s /usr/sbin/nologin
+
+# Copy ALL configuration files at build time
+COPY postfix/ /etc/postfix/
+COPY dovecot/ /etc/dovecot/
+COPY entrypoint.sh /entrypoint.sh
 
 # Generate SSL
 RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/ssl/private/ssl-cert-snakeoil.key \
     -out /etc/ssl/certs/ssl-cert-snakeoil.pem \
-    -subj "/C=BD/ST=Dhaka/L=Dhaka/O=Syscomatic/CN=localhost" \
+    -subj "/C=BD/ST=Dhaka/L=Dhaka/O=Syscomatic/CN=mail.system.syscomatic.com" \
     && chmod 600 /etc/ssl/private/ssl-cert-snakeoil.key
 
-# Copy configs
-COPY postfix/ /etc/postfix/
-COPY dovecot/ /etc/dovecot/
-COPY entrypoint.sh /entrypoint.sh
-
-# Supervisor
+# Create supervisor config
 RUN echo '[supervisord]\nnodaemon=true\n\n[program:postfix]\ncommand=/usr/sbin/postfix start-fg\n[program:dovecot]\ncommand=/usr/sbin/dovecot -F\n' > /etc/supervisor/conf.d/mail.conf
 
 RUN chmod +x /entrypoint.sh \
     && chown -R vmail:vmail /var/mail
 
 EXPOSE 25 143 587 993 465
+
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

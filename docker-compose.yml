@@ -26,9 +26,10 @@ services:
       - maildata:/var/mail
       - mailstate:/var/mail-state
       - maillogs:/var/log/mail
-      - ./postfix/main.cf:/etc/postfix/main.cf:ro
-      - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
-      - ./dovecot/users:/etc/dovecot/users:ro
+      # REMOVE THESE LINES:
+      # - ./postfix/main.cf:/etc/postfix/main.cf:ro
+      # - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+      # - ./dovecot/users:/etc/dovecot/users:ro
     networks:
       - mail-network
     depends_on:
@@ -39,7 +40,7 @@ services:
     container_name: rainloop-system
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:80"  # CHANGED from 8080 to 8081
+      - "127.0.0.1:8081:80"
     environment:
       - RAINLOOP_ADMIN_LOGIN=admin
       - RAINLOOP_ADMIN_PASSWORD=${RAINLOOP_ADMIN_PASSWORD}
